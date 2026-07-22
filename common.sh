@@ -43,20 +43,23 @@ download_file() {
     
     log "INFO" "Downloading from $url"
     
+    # User-Agent для обхода ограничений GitHub
+    local UA="Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.163 Mobile Safari/537.36"
+    
     local attempt=1
     while [ $attempt -le $retries ]; do
-        # Проверяем curl
+        # Пробуем curl
         if command_exists curl; then
             log "INFO" "Using curl"
-            curl -k -s -L --connect-timeout 30 --max-time 60 -o "$output" "$url" && return 0
-        # Проверяем wget
+            curl -k -s -L -A "$UA" --connect-timeout 30 --max-time 60 -o "$output" "$url" && return 0
+        # Пробуем wget с User-Agent
         elif command_exists wget; then
             log "INFO" "Using wget"
-            wget --no-check-certificate -q -T 30 -O "$output" "$url" && return 0
-        # Пробуем busybox wget
+            wget --no-check-certificate -q -T 30 -U "$UA" -O "$output" "$url" && return 0
+        # Пробуем busybox wget с User-Agent
         elif command_exists busybox && busybox --list 2>/dev/null | grep -q wget; then
             log "INFO" "Using busybox wget"
-            busybox wget --no-check-certificate -q -T 30 -O "$output" "$url" && return 0
+            busybox wget --no-check-certificate -q -T 30 -U "$UA" -O "$output" "$url" && return 0
         else
             log "ERROR" "No download tool available"
             return 1
@@ -68,16 +71,6 @@ download_file() {
     
     log "ERROR" "Failed to download after $retries attempts"
     return 1
-}
-
-# Verify file
-verify_file() {
-    local file="$1"
-    if [ ! -f "$file" ] || [ ! -s "$file" ]; then
-        log "ERROR" "File verification failed: $file"
-        return 1
-    fi
-    return 0
 }
 
 # Backup hosts
