@@ -104,7 +104,7 @@ load_config() {
         log "INFO" "Configuration loaded from $config_file"
     else
         log "WARN" "Config file not found, using defaults"
-        URL_PRIMARY="https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
+        URL_PRIMARY="https://raw.githubusercontent.com/ImMALWARE/dns.malw.link/master/hosts"
         AUTO_UPDATE=true
         UPDATE_INTERVAL=86400
         ENABLE_LOG=true
@@ -127,4 +127,41 @@ init_logging() {
             log "INFO" "Log rotated"
         fi
     fi
+}
+# Проверка и установка curl
+ensure_curl() {
+    # Проверяем наличие curl
+    if command_exists curl; then
+        CURL_CMD="curl"
+        return 0
+    fi
+    
+    # Проверяем в Magisk
+    if [ -f /data/adb/magisk/curl ]; then
+        CURL_CMD="/data/adb/magisk/curl"
+        return 0
+    fi
+    
+    # Проверяем в системных папках
+    if [ -f /system/bin/curl ]; then
+        CURL_CMD="/system/bin/curl"
+        return 0
+    fi
+    
+    # Устанавливаем curl через Magisk
+    log "INFO" "Installing curl via Magisk..."
+    if [ -f /data/adb/magisk/util_functions.sh ]; then
+        . /data/adb/magisk/util_functions.sh
+        # Скачиваем и устанавливаем curl
+        download_file "https://github.com/Magisk-Modules-Repo/curl/releases/download/v1.0/curl-arm64-v8a.zip" "/data/local/tmp/curl.zip"
+        if [ -f /data/local/tmp/curl.zip ]; then
+            unzip -o /data/local/tmp/curl.zip -d /data/adb/modules/
+            rm -f /data/local/tmp/curl.zip
+            log "SUCCESS" "curl installed, please reboot"
+            return 1
+        fi
+    fi
+    
+    log "ERROR" "curl not available and installation failed"
+    return 1
 }
