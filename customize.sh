@@ -3,7 +3,7 @@
 # HostFusion - Customize script
 # Этот скрипт выполняется во время установки модуля
 
-ui_print "📦 HostFusion Installer"
+ui_print "📦 HostFusion by heicenberg"
 ui_print "************************"
 
 # Проверяем версию Magisk
