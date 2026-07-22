@@ -1,0 +1,6 @@
+id=hostfusion
+name=HostFusion
+version=v1.0.0
+versionCode=1
+author=YOUR_NAME
+description=Universal Hosts Updater for Magisk / KernelSU / APatch
