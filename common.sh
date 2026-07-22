@@ -1,16 +1,15 @@
 #!/system/bin/sh
 
 # HostFusion - Common functions
-# This file is sourced by other scripts
 
-# Color codes for output
+# Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Logging function
+# Log function
 log() {
     local level="$1"
     local message="$2"
@@ -20,7 +19,6 @@ log() {
         echo "[$timestamp] [$level] $message" >> /data/adb/modules/hostfusion/hostfusion.log
     fi
     
-    # Also print to console if not in silent mode
     if [ "$SILENT" != "true" ]; then
         case "$level" in
             "ERROR")   echo "${RED}❌ $message${NC}" ;;
@@ -37,19 +35,6 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check internet connectivity
-check_internet() {
-    log "INFO" "Checking internet connectivity..."
-    
-    if command_exists ping; then
-        ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1
-    elif command_exists curl; then
-        curl -s --connect-timeout 5 https://www.google.com >/dev/null 2>&1
-    else
-        return 1
-    fi
-}
-
 # Download file with fallback
 download_file() {
     local url="$1"
@@ -60,12 +45,20 @@ download_file() {
     
     local attempt=1
     while [ $attempt -le $retries ]; do
+        # Проверяем curl
         if command_exists curl; then
-            curl -s -L --connect-timeout 30 --max-time 60 -o "$output" "$url" && return 0
+            log "INFO" "Using curl"
+            curl -k -s -L --connect-timeout 30 --max-time 60 -o "$output" "$url" && return 0
+        # Проверяем wget
         elif command_exists wget; then
-            wget -q -T 30 -t 1 -O "$output" "$url" && return 0
+            log "INFO" "Using wget"
+            wget --no-check-certificate -q -T 30 -O "$output" "$url" && return 0
+        # Пробуем busybox wget
+        elif command_exists busybox && busybox --list 2>/dev/null | grep -q wget; then
+            log "INFO" "Using busybox wget"
+            busybox wget --no-check-certificate -q -T 30 -O "$output" "$url" && return 0
         else
-            log "ERROR" "Neither curl nor wget available"
+            log "ERROR" "No download tool available"
             return 1
         fi
         log "WARN" "Download attempt $attempt failed, retrying..."
@@ -77,7 +70,7 @@ download_file() {
     return 1
 }
 
-# Verify file exists and is not empty
+# Verify file
 verify_file() {
     local file="$1"
     if [ ! -f "$file" ] || [ ! -s "$file" ]; then
@@ -87,7 +80,7 @@ verify_file() {
     return 0
 }
 
-# Create backup of current hosts
+# Backup hosts
 backup_hosts() {
     local hosts_file="$1"
     local backup_dir="/data/adb/modules/hostfusion/backups"
@@ -99,7 +92,6 @@ backup_hosts() {
         cp -f "$hosts_file" "$backup_dir/$backup_name"
         log "SUCCESS" "Backup created: $backup_name"
         
-        # Rotate backups
         local backup_count=$(ls -1 "$backup_dir"/hosts_* 2>/dev/null | wc -l)
         if [ $backup_count -gt "$MAX_BACKUPS" ]; then
             ls -1t "$backup_dir"/hosts_* | tail -n +$((MAX_BACKUPS + 1)) | xargs rm -f
@@ -119,7 +111,6 @@ load_config() {
         log "INFO" "Configuration loaded from $config_file"
     else
         log "WARN" "Config file not found, using defaults"
-        # Set defaults
         URL_PRIMARY="https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
         AUTO_UPDATE=true
         UPDATE_INTERVAL=86400
@@ -137,7 +128,6 @@ init_logging() {
     mkdir -p "$log_dir"
     
     if [ "$ENABLE_LOG" = "true" ]; then
-        # Rotate log if too large (>1MB)
         local log_file="$log_dir/hostfusion.log"
         if [ -f "$log_file" ] && [ $(stat -c%s "$log_file" 2>/dev/null || stat -f%z "$log_file" 2>/dev/null) -gt 1048576 ]; then
             mv "$log_file" "$log_file.old"
